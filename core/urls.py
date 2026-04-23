@@ -13,16 +13,20 @@ from .views import (
     AprovacaoListView,
     AprovarReservaView,
     RecusarReservaView,
+    RoomDetailJSONView,
+    RoomListView,
 )
 
 urlpatterns = [
     path('', HomeView.as_view(), name='home'),
+    path('salas/', RoomListView.as_view(), name='room_list'),
 
     # Eventos / Reservas
     path('api/events/', EventsJSONView.as_view(), name='api_events'),
     path('api/events/create/', ReservationCreateView.as_view(), name='api_events_create'),
     path('api/events/<int:pk>/cancel/', ReservationCancelView.as_view(), name='api_events_cancel'),
     path('api/events/<int:pk>/edit/', ReservationEditView.as_view(), name='api_events_edit'),
+    path('api/salas/<int:pk>/', RoomDetailJSONView.as_view(), name='api_room_detail'),
 
     # Autenticação
     path('api/auth/register/', UserRegisterView.as_view(), name='api_auth_register'),

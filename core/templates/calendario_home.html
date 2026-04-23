@@ -83,7 +83,8 @@
                 {% for room in rooms %}
                 <li class="nav-item">
                     <button class="btn btn-outline-secondary btn-sm rounded-pill px-3 fw-semibold" 
-                            data-sala-id="{{ room.id }}" data-color="{{ room.color }}" 
+                            data-sala-id="{{ room.id }}" data-color="{{ room.color }}"
+                            {% if selected_room_id == room.id|stringformat:'s' %}data-selected-from-query="true"{% endif %}
                             style="border-color: {{ room.color }}; color: #495057;">
                         {{ room.nm_sala }}
                     </button>
@@ -140,7 +141,7 @@
             <select class="form-select" id="sala_id" required>
               <option value="">Selecione uma sala...</option>
               {% for room in rooms %}
-                <option value="{{ room.id }}">
+                <option value="{{ room.id }}" {% if selected_room_id == room.id|stringformat:'s' %}selected{% endif %}>
                   {{ room.nm_sala }} | {% if room.nm_predio %}{{ room.nm_predio }}{% else %}Sem Prédio{% endif %}{% if room.nr_andar %} ({{ room.nr_andar }}){% endif %} | Cap: {{ room.qtd_capacidade }}
                   {% if room.projetor %}📽️{% endif %}
                   {% if room.tela %}📺{% endif %}
@@ -425,6 +426,8 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    const selectedRoomIdFromQuery = "{{ selected_room_id|default:''|escapejs }}";
+    const shouldOpenReservaModal = "{{ open_reserva_modal|yesno:'1,0' }}" === '1';
 
     // ── Instâncias de modais ──────────────────────────────────────────────────
     const reservaModal  = new bootstrap.Modal(document.getElementById('reservaModal'));
@@ -815,6 +818,13 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    if (selectedRoomIdFromQuery) {
+        const selectedButton = document.querySelector(`#filtro-sala-pills button[data-sala-id="${selectedRoomIdFromQuery}"]`);
+        if (selectedButton) {
+            selectedButton.click();
+        }
+    }
+
     document.getElementById('btn-nova-reserva-cta').addEventListener('click', function() {
         if (!window.usuarioAutenticado) {
             loginModal.show();
@@ -828,6 +838,9 @@ document.addEventListener('DOMContentLoaded', function () {
         const end = new Date(now.getTime() + 60 * 60 * 1000); // 1 hora de duracao default
         document.getElementById('start_datetime').value = toDatetimeLocal(now);
         document.getElementById('end_datetime').value   = toDatetimeLocal(end);
+        if (selectedRoomIdFromQuery) {
+            document.getElementById('sala_id').value = selectedRoomIdFromQuery;
+        }
         document.getElementById('errorAlert').classList.add('d-none');
         reservaModal.show();
     });
@@ -878,6 +891,21 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('reservaModal').addEventListener('hidden.bs.modal', function () {
         document.getElementById('errorAlert').classList.add('d-none');
     });
+
+    if (selectedRoomIdFromQuery && shouldOpenReservaModal) {
+        const now = new Date();
+        const end = new Date(now.getTime() + 60 * 60 * 1000);
+        document.getElementById('reserva_id').value = '';
+        document.getElementById('formReserva').reset();
+        document.getElementById('reservaModalLabel').innerHTML = '<i class="bi bi-calendar-plus me-2"></i>Nova Reserva';
+        document.getElementById('start_datetime').value = toDatetimeLocal(now);
+        document.getElementById('end_datetime').value = toDatetimeLocal(end);
+        document.getElementById('sala_id').value = selectedRoomIdFromQuery;
+        document.getElementById('errorAlert').classList.add('d-none');
+        if (window.usuarioAutenticado) {
+            reservaModal.show();
+        }
+    }
 
 });
 </script>

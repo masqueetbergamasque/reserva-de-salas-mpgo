@@ -1,0 +1,415 @@
+{% extends 'base.html' %}
+
+{% block extra_head %}
+<style>
+    .rooms-page-shell {
+        background: linear-gradient(180deg, #f8fbff 0%, #f8f9fa 100%);
+        border-radius: 24px;
+        padding: 1.5rem;
+    }
+    .room-filter-panel,
+    .room-card {
+        background: #fff;
+        border: 1px solid rgba(13, 110, 253, 0.08);
+        border-radius: 20px;
+        box-shadow: 0 16px 36px rgba(15, 23, 42, 0.06);
+    }
+    .room-card {
+        overflow: hidden;
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+        height: 100%;
+    }
+    .room-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 20px 44px rgba(15, 23, 42, 0.1);
+    }
+    .room-card-media {
+        height: 220px;
+        background: linear-gradient(135deg, #d8e9ff 0%, #f2f6fb 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+    .room-card-media img,
+    .room-gallery-main img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .room-media-placeholder {
+        color: #5f6b7a;
+        text-align: center;
+        padding: 1rem;
+    }
+    .resource-badge,
+    .layout-badge {
+        background: #eef5ff;
+        color: #24559b;
+        border-radius: 999px;
+        padding: 0.35rem 0.75rem;
+        font-size: 0.82rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+    .layout-badge {
+        background: #f4f0ff;
+        color: #6547b3;
+    }
+    .room-gallery-main {
+        border-radius: 18px;
+        background: #f3f6fb;
+        height: 320px;
+        overflow: hidden;
+        margin-bottom: 1rem;
+    }
+    .room-gallery-thumbs {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+        gap: 0.75rem;
+    }
+    .room-gallery-thumb {
+        width: 100%;
+        height: 88px;
+        border-radius: 14px;
+        border: 2px solid transparent;
+        overflow: hidden;
+        padding: 0;
+        background: #eef2f7;
+    }
+    .room-gallery-thumb.active {
+        border-color: #0d6efd;
+    }
+    .room-gallery-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .room-detail-list li {
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #eef2f7;
+    }
+    .room-detail-list li:last-child {
+        border-bottom: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="rooms-page-shell">
+    <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-end gap-3 mb-4">
+        <div>
+            <span class="text-uppercase small fw-bold text-primary">Consulta de Salas</span>
+            <h2 class="fw-bold mb-1">Encontre a sala certa antes de reservar</h2>
+            <p class="text-muted mb-0">Compare capacidade, recursos, layouts e localização em uma tela dedicada.</p>
+        </div>
+        <a href="/" class="btn btn-outline-primary rounded-pill px-4">
+            <i class="bi bi-calendar-plus me-2"></i>Ir para o calendário
+        </a>
+    </div>
+
+    <section class="room-filter-panel p-4 mb-4">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-12 col-lg-4">
+                <label for="q" class="form-label fw-semibold">Buscar sala</label>
+                <input type="text" class="form-control" id="q" name="q" value="{{ filters.q }}" placeholder="Nome ou observação">
+            </div>
+            <div class="col-6 col-lg-2">
+                <label for="capacidade_min" class="form-label fw-semibold">Capacidade mínima</label>
+                <input type="number" min="1" class="form-control" id="capacidade_min" name="capacidade_min" value="{{ filters.capacidade_min }}" placeholder="Ex: 10">
+            </div>
+            <div class="col-6 col-lg-3">
+                <label for="layout" class="form-label fw-semibold">Layout permitido</label>
+                <select class="form-select" id="layout" name="layout">
+                    <option value="">Todos os layouts</option>
+                    {% for layout in layouts %}
+                    <option value="{{ layout.id }}" {% if filters.layout == layout.id|stringformat:'s' %}selected{% endif %}>{{ layout.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-lg-3">
+                <label for="predio" class="form-label fw-semibold">Prédio</label>
+                <select class="form-select" id="predio" name="predio">
+                    <option value="">Todos os prédios</option>
+                    {% for predio in predios %}
+                    <option value="{{ predio }}" {% if filters.predio == predio %}selected{% endif %}>{{ predio }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12">
+                <div class="d-flex flex-wrap gap-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="1" id="projetor" name="projetor" {% if filters.projetor %}checked{% endif %}>
+                        <label class="form-check-label" for="projetor">Projetor</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="1" id="tela" name="tela" {% if filters.tela %}checked{% endif %}>
+                        <label class="form-check-label" for="tela">Tela/TV</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="1" id="videoconferencia" name="videoconferencia" {% if filters.videoconferencia %}checked{% endif %}>
+                        <label class="form-check-label" for="videoconferencia">Videoconferência</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="1" id="quadro_branco" name="quadro_branco" {% if filters.quadro_branco %}checked{% endif %}>
+                        <label class="form-check-label" for="quadro_branco">Quadro branco</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="1" id="acessibilidade" name="acessibilidade" {% if filters.acessibilidade %}checked{% endif %}>
+                        <label class="form-check-label" for="acessibilidade">Acessibilidade</label>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 d-flex flex-wrap gap-2">
+                <button type="submit" class="btn btn-primary rounded-pill px-4">
+                    <i class="bi bi-funnel me-2"></i>Aplicar filtros
+                </button>
+                <a href="/salas/" class="btn btn-outline-secondary rounded-pill px-4">Limpar filtros</a>
+            </div>
+        </form>
+    </section>
+
+    {% if rooms %}
+    <section class="row g-4">
+        {% for room in rooms %}
+        <div class="col-12 col-md-6 col-xl-4">
+            <article class="room-card">
+                <div class="room-card-media">
+                    {% if room.foto_principal %}
+                    <img src="{{ room.foto_principal.arquivo.url }}" alt="Foto da sala {{ room.nm_sala }}">
+                    {% else %}
+                    <div class="room-media-placeholder">
+                        <i class="bi bi-image fs-1 d-block mb-2"></i>
+                        <strong>{{ room.nm_sala }}</strong>
+                        <div class="small">Sem foto cadastrada</div>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="p-4">
+                    <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
+                        <div>
+                            <h3 class="h5 fw-bold mb-1">{{ room.nm_sala }}</h3>
+                            <p class="text-muted mb-0">
+                                {{ room.nm_predio|default:"Prédio não informado" }}
+                                {% if room.nr_andar %} • {{ room.nr_andar }}{% endif %}
+                            </p>
+                        </div>
+                        {% if room.exige_aprovacao %}
+                        <span class="badge text-bg-warning rounded-pill">Aprovação</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <span class="resource-badge"><i class="bi bi-people"></i>{{ room.qtd_capacidade }} pessoas</span>
+                        {% if room.metragem_m2 %}
+                        <span class="resource-badge"><i class="bi bi-bounding-box"></i>{{ room.metragem_m2 }} m²</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        {% for layout in room.layouts_permitidos.all %}
+                        <span class="layout-badge">{{ layout.nome }}</span>
+                        {% empty %}
+                        <span class="text-muted small">Layout não informado</span>
+                        {% endfor %}
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2 mb-4">
+                        {% for recurso in room.get_recursos %}
+                        <span class="badge rounded-pill text-bg-light border">{{ recurso }}</span>
+                        {% empty %}
+                        <span class="text-muted small">Sem recursos destacados</span>
+                        {% endfor %}
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary flex-fill rounded-pill btn-room-detail"
+                            data-room-id="{{ room.id }}">
+                            <i class="bi bi-eye me-2"></i>Ver detalhes
+                        </button>
+                        <a href="/?sala={{ room.id }}&open_reserva=1" class="btn btn-primary flex-fill rounded-pill">
+                            <i class="bi bi-calendar-plus me-2"></i>Reservar
+                        </a>
+                    </div>
+                </div>
+            </article>
+        </div>
+        {% endfor %}
+    </section>
+    {% else %}
+    <section class="room-filter-panel p-5 text-center">
+        <i class="bi bi-search fs-1 text-primary d-block mb-3"></i>
+        <h3 class="h4 fw-bold">Nenhuma sala encontrada</h3>
+        <p class="text-muted mb-4">Ajuste os filtros para ampliar a busca.</p>
+        <a href="/salas/" class="btn btn-primary rounded-pill px-4">Remover filtros</a>
+    </section>
+    {% endif %}
+</div>
+
+<div class="modal fade" id="roomDetailModal" tabindex="-1" aria-labelledby="roomDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="roomDetailModalLabel">
+                    <i class="bi bi-door-open me-2"></i>Detalhes da Sala
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="roomDetailLoading" class="text-center py-5">
+                    <div class="spinner-border text-primary mb-3" role="status"></div>
+                    <p class="mb-0 text-muted">Carregando informações da sala...</p>
+                </div>
+                <div id="roomDetailContent" class="d-none">
+                    <div class="row g-4">
+                        <div class="col-12 col-lg-7">
+                            <div class="room-gallery-main" id="roomGalleryMain"></div>
+                            <div class="room-gallery-thumbs" id="roomGalleryThumbs"></div>
+                        </div>
+                        <div class="col-12 col-lg-5">
+                            <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                                <div>
+                                    <h3 class="h4 fw-bold mb-1" id="roomModalName"></h3>
+                                    <p class="text-muted mb-0" id="roomModalLocation"></p>
+                                </div>
+                                <span class="badge text-bg-warning rounded-pill d-none" id="roomModalApprovalBadge">Exige aprovação</span>
+                            </div>
+                            <ul class="list-unstyled room-detail-list mb-4">
+                                <li><strong>Capacidade:</strong> <span id="roomModalCapacity">-</span></li>
+                                <li><strong>Metragem:</strong> <span id="roomModalArea">-</span></li>
+                                <li><strong>Endereço:</strong> <span id="roomModalAddress">-</span></li>
+                                <li><strong>Layouts:</strong> <span id="roomModalLayouts">-</span></li>
+                                <li><strong>Recursos:</strong> <span id="roomModalFeatures">-</span></li>
+                            </ul>
+                            <div class="mb-4">
+                                <h4 class="h6 text-uppercase fw-bold text-primary">Descrição</h4>
+                                <p class="text-muted mb-0" id="roomModalDescription">Sem descrição cadastrada.</p>
+                            </div>
+                            <div class="d-flex flex-wrap gap-2">
+                                <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-outline-secondary rounded-pill d-none" id="roomModalMapLink">
+                                    <i class="bi bi-geo-alt me-2"></i>Ver no mapa
+                                </a>
+                                <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-outline-secondary rounded-pill d-none" id="roomModalPlanLink">
+                                    <i class="bi bi-file-earmark-pdf me-2"></i>Planta baixa
+                                </a>
+                                <a href="#" class="btn btn-primary rounded-pill" id="roomModalReserveLink">
+                                    <i class="bi bi-calendar-plus me-2"></i>Reservar esta sala
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const detailButtons = document.querySelectorAll('.btn-room-detail');
+    const roomModalElement = document.getElementById('roomDetailModal');
+    const roomModal = new bootstrap.Modal(roomModalElement);
+    const loadingEl = document.getElementById('roomDetailLoading');
+    const contentEl = document.getElementById('roomDetailContent');
+    const mainImageEl = document.getElementById('roomGalleryMain');
+    const thumbsEl = document.getElementById('roomGalleryThumbs');
+
+    function renderGallery(photos, roomName) {
+        if (!photos.length) {
+            mainImageEl.innerHTML = `
+                <div class="room-media-placeholder h-100 d-flex flex-column align-items-center justify-content-center">
+                    <i class="bi bi-image fs-1 d-block mb-2"></i>
+                    <strong>${roomName}</strong>
+                    <div class="small">Sem fotos cadastradas</div>
+                </div>
+            `;
+            thumbsEl.innerHTML = '';
+            return;
+        }
+
+        const principal = photos.find(photo => photo.is_principal) || photos[0];
+        mainImageEl.innerHTML = `<img src="${principal.url}" alt="${roomName}">`;
+        thumbsEl.innerHTML = '';
+
+        photos.forEach((photo, index) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = `room-gallery-thumb ${photo.url === principal.url ? 'active' : ''}`;
+            button.innerHTML = `<img src="${photo.url}" alt="${photo.legenda || roomName}">`;
+            button.addEventListener('click', function () {
+                mainImageEl.innerHTML = `<img src="${photo.url}" alt="${roomName}">`;
+                thumbsEl.querySelectorAll('.room-gallery-thumb').forEach(thumb => thumb.classList.remove('active'));
+                thumbsEl.children[index].classList.add('active');
+            });
+            thumbsEl.appendChild(button);
+        });
+    }
+
+    async function loadRoomDetail(roomId) {
+        loadingEl.classList.remove('d-none');
+        contentEl.classList.add('d-none');
+        roomModal.show();
+
+        try {
+            const response = await fetch(`/api/salas/${roomId}/`);
+            const room = await response.json();
+
+            document.getElementById('roomModalName').textContent = room.nome;
+            document.getElementById('roomModalLocation').textContent = [room.predio, room.andar].filter(Boolean).join(' • ') || 'Localização não informada';
+            document.getElementById('roomModalCapacity').textContent = `${room.capacidade} pessoas`;
+            document.getElementById('roomModalArea').textContent = room.metragem_m2 ? `${room.metragem_m2} m²` : 'Não informada';
+            document.getElementById('roomModalAddress').textContent = room.endereco || 'Não informado';
+            document.getElementById('roomModalLayouts').textContent = room.layouts.length ? room.layouts.join(', ') : 'Não informados';
+            document.getElementById('roomModalFeatures').textContent = room.recursos.length ? room.recursos.join(', ') : 'Não informados';
+            document.getElementById('roomModalDescription').textContent = room.descricao || 'Sem descrição cadastrada.';
+            document.getElementById('roomModalReserveLink').href = `/?sala=${room.id}&open_reserva=1`;
+
+            const approvalBadge = document.getElementById('roomModalApprovalBadge');
+            approvalBadge.classList.toggle('d-none', !room.exige_aprovacao);
+
+            const mapLink = document.getElementById('roomModalMapLink');
+            mapLink.classList.toggle('d-none', !room.google_maps);
+            mapLink.href = room.google_maps || '#';
+
+            const planLink = document.getElementById('roomModalPlanLink');
+            planLink.classList.toggle('d-none', !room.planta_baixa);
+            planLink.href = room.planta_baixa || '#';
+
+            renderGallery(room.fotos, room.nome);
+
+            loadingEl.classList.add('d-none');
+            contentEl.classList.remove('d-none');
+        } catch (error) {
+            loadingEl.innerHTML = `
+                <div class="alert alert-danger mb-0">
+                    Não foi possível carregar os detalhes da sala.
+                </div>
+            `;
+        }
+    }
+
+    detailButtons.forEach(button => {
+        button.addEventListener('click', function () {
+            loadRoomDetail(this.dataset.roomId);
+        });
+    });
+
+    roomModalElement.addEventListener('hidden.bs.modal', function () {
+        loadingEl.innerHTML = `
+            <div class="spinner-border text-primary mb-3" role="status"></div>
+            <p class="mb-0 text-muted">Carregando informações da sala...</p>
+        `;
+        loadingEl.classList.remove('d-none');
+        contentEl.classList.add('d-none');
+        mainImageEl.innerHTML = '';
+        thumbsEl.innerHTML = '';
+    });
+});
+</script>
+{% endblock %}

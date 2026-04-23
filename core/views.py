@@ -8,7 +8,8 @@ from django.utils.dateparse import parse_datetime
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
-from .models import Reservation, Room, UserProfile, Notification
+from django.db.models import Prefetch, Q
+from .models import Notification, Reservation, Room, RoomImage, RoomLayout, UserProfile
 import json
 PASTEL_COLORS = [
     '#AEC6CF', '#FFB347', '#77DD77', '#FF6961',
@@ -26,10 +27,105 @@ class HomeView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         rooms = list(Room.objects.all())
+        selected_room_id = self.request.GET.get('sala', '').strip()
         for room in rooms:
             room.color = get_color_for_room(room.id)
         context['rooms'] = rooms
+        context['selected_room_id'] = selected_room_id
+        context['open_reserva_modal'] = self.request.GET.get('open_reserva') == '1'
         return context
+
+
+class RoomListView(TemplateView):
+    template_name = 'salas_list.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        rooms = Room.objects.prefetch_related(
+            'layouts_permitidos',
+            Prefetch('fotos', queryset=RoomImage.objects.order_by('ordem', 'id')),
+        ).all()
+
+        search = self.request.GET.get('q', '').strip()
+        min_capacity = self.request.GET.get('capacidade_min', '').strip()
+        layout_id = self.request.GET.get('layout', '').strip()
+        building = self.request.GET.get('predio', '').strip()
+        selected_features = {
+            feature: (self.request.GET.get(feature) == '1')
+            for feature in ('projetor', 'tela', 'videoconferencia', 'quadro_branco', 'acessibilidade')
+        }
+
+        if search:
+            rooms = rooms.filter(Q(nm_sala__icontains=search) | Q(obs_sala__icontains=search))
+        if min_capacity:
+            rooms = rooms.filter(qtd_capacidade__gte=min_capacity)
+        if layout_id:
+            rooms = rooms.filter(layouts_permitidos__id=layout_id)
+        if building:
+            rooms = rooms.filter(nm_predio=building)
+        for feature, enabled in selected_features.items():
+            if enabled:
+                rooms = rooms.filter(**{feature: True})
+
+        rooms = rooms.distinct().order_by('nm_predio', 'nm_sala')
+
+        context['rooms'] = rooms
+        context['layouts'] = RoomLayout.objects.order_by('nome')
+        context['predios'] = (
+            Room.objects.exclude(nm_predio__isnull=True)
+            .exclude(nm_predio__exact='')
+            .values_list('nm_predio', flat=True)
+            .distinct()
+            .order_by('nm_predio')
+        )
+        context['filters'] = {
+            'q': search,
+            'capacidade_min': min_capacity,
+            'layout': layout_id,
+            'predio': building,
+            **selected_features,
+        }
+        return context
+
+
+class RoomDetailJSONView(View):
+    def get(self, request, pk, *args, **kwargs):
+        room = get_object_or_404(
+            Room.objects.prefetch_related(
+                'layouts_permitidos',
+                Prefetch('fotos', queryset=RoomImage.objects.order_by('ordem', 'id')),
+            ),
+            pk=pk,
+        )
+
+        fotos = [
+            {
+                'url': foto.arquivo.url,
+                'legenda': foto.legenda or '',
+                'is_principal': foto.is_principal,
+            }
+            for foto in room.fotos.all()
+        ]
+
+        data = {
+            'id': room.id,
+            'nome': room.nm_sala,
+            'predio': room.nm_predio or '',
+            'andar': room.nr_andar or '',
+            'endereco': room.end_sala or '',
+            'google_maps': room.link_google_maps or '',
+            'codigo': room.cdg_sala or '',
+            'capacidade': room.qtd_capacidade,
+            'metragem_m2': float(room.metragem_m2) if room.metragem_m2 is not None else None,
+            'descricao': room.descricao_detalhada or room.obs_sala or '',
+            'observacoes': room.obs_sala or '',
+            'planta_baixa': room.planta_baixa.url if room.planta_baixa else '',
+            'exige_aprovacao': room.exige_aprovacao,
+            'recursos': room.get_recursos(),
+            'layouts': [layout.nome for layout in room.layouts_permitidos.all()],
+            'fotos': fotos,
+        }
+        return JsonResponse(data)
 
 
 # ── Events ────────────────────────────────────────────────────────────────────
@@ -397,4 +493,3 @@ class RecusarReservaView(LoginRequiredMixin, View):
         )
         messages.warning(request, f"Reserva de {reserva.usuario.get_full_name()} recusada.")
         return redirect('aprovacao_list')
-
