@@ -12,5 +12,7 @@ import os
 from django.core.wsgi import get_wsgi_application
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'reserva_mpgo.settings')
+# For temporary diagnostics on PythonAnywhere only:
+# os.environ['DJANGO_DEBUG'] = 'true'
 
 application = get_wsgi_application()
